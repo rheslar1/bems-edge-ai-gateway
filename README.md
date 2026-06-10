@@ -1,23 +1,24 @@
 # BEMS Edge AI Gateway
 
-C++ edge runtime coordinating BACnet polling, local safety rules, RabbitMQ command transport, and cloud-ready telemetry.
+C++17 edge-runtime slice for a Building Energy Management System gateway. The
+project models the control boundary between BACnet telemetry, AI setpoint
+recommendations, local safety rules, RabbitMQ-style command publishing, and
+cloud-ready telemetry payloads.
 
-## Portfolio Purpose
-
-This repository is an Embedded Systems project scaffold for the Rheslar portfolio. It is designed to become a hardware-backed project with build output, validation logs, and reviewable implementation evidence.
-
-All generated Embedded Systems repos are C++17-first and are framed around C++ design patterns and SOLID design principles.
+This is intentionally dependency-light so it can run on a normal development
+machine before being ported to an i.MX93, BeagleBone-class Linux target, or a
+Yocto image.
 
 ## Stack
 
 - C++17
-- C++ Design Patterns
-- SOLID
-- C++
-- BACnet/IP
-- RabbitMQ
-- Docker
-- i.MX93
+- CMake and CTest
+- BACnet/IP polling boundary
+- BEMS-ai recommendation boundary
+- RabbitMQ command-route model
+- Telemetry payload serialization
+- Local simulator fallback
+- Edge Linux / Yocto deployment path
 
 ## Quick Start
 
@@ -28,18 +29,44 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-## Implementation Slices
+Expected demo output includes a commissioning cycle, the number of accepted
+commands, JSON-like command payloads, and telemetry records for each zone.
 
-- C++17 starter executable that exposes the project identity, stack, and validation target.
-- Small strategy-style readiness check that keeps the scaffold aligned with C++ design patterns.
-- Architecture document with control boundaries, data flow, safety assumptions, and evidence plan.
-- CTest smoke test that keeps source, docs, and CI files present as the repo grows.
-- GitHub Actions workflow for configure, build, executable smoke run, and repository validation.
+## What The Code Demonstrates
 
-## Evidence Target
+- `IBacnetClient` isolates BACnet present-value acquisition.
+- `IAiAdvisor` isolates BEMS-ai setpoint recommendations.
+- `SafetyPolicy` blocks unsafe, low-confidence, or out-of-range commands before
+  anything reaches the command bus.
+- `ICommandPublisher` models a RabbitMQ route-key publishing boundary.
+- `ITelemetrySink` records every control decision for observability.
+- `EdgeGateway` coordinates one polling/control/publish cycle.
+- `SimulatedBacnetClient` and fallback samples keep the gateway runnable without
+  field hardware.
 
-Resilient edge control with simulator-safe fallbacks and observable health checks.
+## Repository Layout
+
+```text
+include/bems_gateway/Gateway.hpp   Public gateway interfaces and data contracts
+src/Gateway.cpp                    Gateway implementation and simulator data
+src/main.cpp                       Commissioning/demo executable
+tests/GatewayTests.cpp             CTest behavioral checks
+docs/validation-plan.md            Build, test, and hardware evidence plan
+.github/workflows/ci.yml           GitHub Actions build and test workflow
+```
+
+## Validation Evidence
+
+The current host-side checks validate that:
+
+- safe AI setpoint recommendations are published,
+- unsafe setpoints are rejected,
+- telemetry is recorded for each zone,
+- fallback simulator data is used when BACnet returns no samples,
+- command and telemetry payloads expose the expected fields.
 
 ## Remote
 
-Intended public repository: https://github.com/rheslar1/bems-edge-ai-gateway
+```text
+git@github.com:rheslar1/bems-edge-ai-gateway.git
+```

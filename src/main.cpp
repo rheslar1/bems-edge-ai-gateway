@@ -1,62 +1,30 @@
-#include <array>
+#include "bems_gateway/Gateway.hpp"
+
 #include <iostream>
-#include <string_view>
-
-class IReadinessRule {
- public:
-  virtual ~IReadinessRule() = default;
-  virtual bool passes(std::string_view evidenceTarget) const = 0;
-  virtual std::string_view name() const = 0;
-};
-
-class RequiredEvidenceRule final : public IReadinessRule {
- public:
-  bool passes(std::string_view evidenceTarget) const override {
-    return !evidenceTarget.empty();
-  }
-
-  std::string_view name() const override {
-    return "RequiredEvidenceRule";
-  }
-};
-
-struct ProjectProfile {
-  std::string_view title;
-  std::string_view summary;
-  std::string_view evidenceTarget;
-  std::array<std::string_view, 8> tags;
-};
-
-constexpr ProjectProfile profile{
-  "BEMS Edge AI Gateway",
-  "C++ edge runtime coordinating BACnet polling, local safety rules, RabbitMQ command transport, and cloud-ready telemetry.",
-  "Resilient edge control with simulator-safe fallbacks and observable health checks.",
-  {
-    "C++17",
-    "C++ Design Patterns",
-    "SOLID",
-    "C++",
-    "BACnet/IP",
-    "RabbitMQ",
-    "Docker",
-    "i.MX93"
-  }
-};
 
 int main() {
-  const RequiredEvidenceRule readinessRule;
+  using namespace bems_gateway;
 
-  std::cout << profile.title << '\n';
-  std::cout << "Summary: " << profile.summary << '\n';
-  std::cout << "Evidence target: " << profile.evidenceTarget << '\n';
-  std::cout << "Readiness rule: " << readinessRule.name() << '\n';
-  std::cout << "SOLID marker: C++17 strategy interface with replaceable readiness rule" << '\n';
-  std::cout << "Stack:";
+  SimulatedBacnetClient bacnet(defaultCommissioningSamples());
+  RuleBasedAiAdvisor advisor;
+  SafetyPolicy safetyPolicy(18.0, 26.0, 0.70);
+  InMemoryCommandPublisher commandPublisher;
+  InMemoryTelemetrySink telemetrySink;
 
-  for (std::size_t index = 0; index < profile.tags.size(); ++index) {
-    std::cout << ' ' << profile.tags[index] << (index + 1U == profile.tags.size() ? "" : ",");
+  EdgeGateway gateway(bacnet, advisor, safetyPolicy, commandPublisher, telemetrySink);
+  const auto report = gateway.runOnce();
+
+  std::cout << "BEMS Edge AI Gateway commissioning cycle\n";
+  std::cout << "fallback_used=" << (report.fallbackUsed ? "true" : "false") << '\n';
+  std::cout << "commands=" << report.commands.size() << '\n';
+
+  for (const auto& command : report.commands) {
+    std::cout << "command " << toCommandPayload(command) << '\n';
   }
 
-  std::cout << '\n';
-  return readinessRule.passes(profile.evidenceTarget) ? 0 : 1;
+  for (const auto& telemetry : report.telemetry) {
+    std::cout << "telemetry " << toTelemetryPayload(telemetry) << '\n';
+  }
+
+  return report.telemetry.empty() ? 1 : 0;
 }
